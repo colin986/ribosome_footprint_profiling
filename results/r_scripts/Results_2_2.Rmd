@@ -50,6 +50,15 @@ table_s3 %>%
 
 table_s3 %>%
   filter(`ORF type` != "Annotated") %>%
+  group_by(`Start codon`) %>%
+  summarise(
+    count = n(),
+    percentage = (n() / nrow(.)) * 100
+  ) %>%
+  arrange(-percentage)
+
+table_s3 %>%
+  filter(`ORF type` != "Annotated") %>%
   group_by(`ORF type`) %>%
   summarise(
     count = n(),
