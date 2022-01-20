@@ -124,10 +124,11 @@ hcp_bar_plot_data <- bind_rows(
   data.frame(sample = "Nivolumab PXD019668", table(niv_dp_class$prot_class)),
   data.frame(sample = "Bevacizumab PXD019668", table(bev_dp_class$prot_class)),
   data.frame(sample = "Adalimumab PXD019668", table(ada_dp_pride_class$prot_class)),
-  data.frame(sample = "Adalimumab NIBRT", table(ada_dp_nibrt_class$prot_class))
+  data.frame(sample = "adalimumab", table(ada_dp_nibrt_class$prot_class))
 )
 
 hcp_bar_plot <- hcp_bar_plot_data %>%
+  filter(sample == "adalimumab") %>%
   ggplot(aes(x = sample, fill = factor(Var1, levels = c("Micropeptide", "Proteoform", "Uniprot")), y = Freq)) +
   geom_bar(stat = "identity") +
   theme_bw() +
@@ -137,7 +138,7 @@ hcp_bar_plot <- hcp_bar_plot_data %>%
   coord_flip()
 
 hcp_bar_plot
-ggsave(hcp_bar_plot, filename = paste0(results_dir,"Figure 4C.png"), device = "png", dpi = 700, width = 8, height = 4)
+ggsave(hcp_bar_plot, filename = paste0(results_dir,"Figure 4C.png"), device = "png", dpi = 700, width = 8, height = 2)
 ```
 
 ## Merge MS identifications with ORF-RATER
@@ -165,24 +166,26 @@ ada_dp_nibrt_sorf <- table_s3 %>%
   mutate(Accession = `ORF-RATER name`) %>%
   left_join(ada_dp_nibrt, by = "Accession") %>%
   drop_na(Description) %>%
-  filter(`Length (AAs)` < 100) %>%
+  filter(`Length (AAs)` > 100) %>%
   mutate(Source = "NIBRT", mAb = "Adalimumab") %>%
   select(`ORF-RATER name`, mAb, Source, `ORF type`, `Associated Gene symbol`, `Start codon`, `Length (AAs)`, `Coverage [%]`, `# Peptides`)
 ```
 
 
 ```{r}
-dp_sorf_table <- bind_rows(ada_dp_pride_sorf, ada_dp_nibrt_sorf, tras_dp_beck_sorf)
+dp_sorf_table <- bind_rows(ada_dp_nibrt_sorf)
 
 dp_sorf_table <- dp_sorf_table %>%
   rename(`Gene symbol` = `Associated Gene symbol`) %>%
-  select(-c(`Length (AAs)`))
+  select(-c(`Length (AAs)`)) %>%
+  select(!Source) %>%
+  arrange("# Peptides")
 
 microprotein_dp_table <- tableGrob(dp_sorf_table, theme = ttheme_default(
   base_size = 10, padding = unit(c(2, 2), "mm"),
   core = list(
-    bg_params = list(fill = c("grey95", "grey90", "grey95", "grey90", "grey95", "#35968CFF", "grey95", "grey90", "grey95", "grey90", "grey95")),
-    fg_params = list(col = c("black", "black", "black", "black", "black", "white", "black", "black", "black", "black", "black"))
+    bg_params = list(fill = c("grey95", "grey90", "grey95", "grey90","#35968CFF", "grey95",  "grey95", "grey90", "grey95", "grey90", "grey95")),
+    fg_params = list(col = c("black", "black", "black", "black", "white","black",  "black", "black", "black", "black", "black"))
   )
 ))
 
