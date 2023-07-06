@@ -45,23 +45,9 @@ To be completed when data is uploaded to SRA and ENA
 Download the PICR-H reference genome from NCBI and create a STAR index for mapping
 
 ```bash
+# download
 mkdir -p reference_genome
-
-# NCBI location
-url=https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/003/668/045/
-
-# get the sequence, annotation and feature table
-wget "$url"GCF_003668045.3_CriGri-PICRH-1.0/GCF_003668045.3_CriGri-PICRH-1.0_genomic.fna.gz \
--P reference_genome
-
-wget "$url"/GCF_003668045.3_CriGri-PICRH-1.0/GCF_003668045.3_CriGri-PICRH-1.0_genomic.gtf.gz \
--P reference_genome
-
-wget "$url"/GCF_003668045.3_CriGri-PICRH-1.0/GCF_003668045.3_CriGri-PICRH-1.0_feature_table.txt.gz \
--P reference_genome 
-
-wget "$url"/GCF_003668045.3_CriGri-PICRH-1.0/GCF_003668045.3_CriGri-PICRH-1.0_genomic.gff.gz \
--P reference_genome 
+cat data/reference_genome_files.txt | parallel -j 4 wget -P reference_genome {}
 
 # extract
 gunzip reference_genome/*.gz
