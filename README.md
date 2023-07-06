@@ -1,30 +1,43 @@
-# CHO Cell Ribo-seq 
+ 
+# CHO cell Ribo-seq analysis  
 
-The code contained in this repositority enable the reproduction of the results of
+[![DOI](https://zenodo.org/badge/449655379.svg)](https://zenodo.org/badge/latestdoi/449655379)
 
-Castro-Rivadeneyra *et. al* 
+The code contained in this repositority enable the reproduction of the results of:
 
-The publication is freely availiable here:
+Castro-Rivadeneyra *et. al* 2023. **Annotation of the non-canonical translatome reveals that CHO cell microproteins are a new class of mAb drug product impurity**
 
+The publication is freely availiable here: xxxxxxx&nbsp;
 
+**Abstract:**
+<p style='text-align: justify;'>
+Mass spectrometry (MS) has emerged as a powerful approach for the detection of Chinese hamster ovary (CHO) cell protein impurities in antibody drug products. The incomplete annotation of the Chinese hamster genome, however, limits the coverage of MS-based host cell protein (HCP) analysis.</p> &nbsp;
 
+<p style='text-align: justify;'>
+Chinese hamster ovary (CHO) cells are used to produce almost 90% of therapeutic monoclonal antibodies (mAbs). The annotation of non-canonical translation events in these cellular factories remains incomplete, limiting not only our ability to study CHO cell biology but also detect host cell protein (HCP) contaminants in the final mAb drug product. We utilised ribosome footprint profiling (Ribo-seq) to identify novel open reading frames (ORFs) including N-terminal extensions and thousands of short ORFs (sORFs) predicted to encode microproteins. Mass spectrometry-based HCP analysis of four commercial mAb drug products using the extended protein sequence database revealed the presence of microprotein impurities for the first time. We also show that microprotein abundance varies with growth phase and can be affected by the cell culture environment. In addition, our work provides a vital resource to facilitate future studies of non-canonical translation as well as the regulation of protein synthesis in CHO cell lines.
+</p>
+&nbsp;
 
-## 1. Dependencies
-| Software | R packages | 
-| ------------- | --------------- |
-| [cutadapt 1.18](https://cutadapt.readthedocs.io/en/stable/)     | [tidyverse]() |
-| [STAR-2.7.8a](https://github.com/alexdobin/STAR) | [DESeq2]() | 
-| [trimmomatic-0.36](http://www.usadellab.org/cms/?page=trimmomatic) | [patchwork] |
-| [Plastid](https://plastid.readthedocs.io/en/latest/) | [writexl] |
-| [ORF-RATER](https://github.com/alexfields/ORF-RATER) | 
-| [Docker](https://www.docker.com/) |
-| [samtools](http://www.htslib.org/) | 
-| [Deeptools](https://deeptools.readthedocs.io/en/develop/) |
-| [agat](https://github.com/NBISweden/AGAT)
-| [Kent Utilities](https://hgdownload.soe.ucsc.edu/admin/exe/) |
+## Dependencies  
 
-<br/>  
+| Software | R packages      ||
+| ------------- | --------------- | --------------- |
+| [cutadapt 1.18](https://cutadapt.readthedocs.io/en/stable/)     | [tidyverse](https://tidyr.tidyverse.org) | [gridExtra](https://cran.r-project.org/web/packages/gridExtra/index.html) |
+| [STAR-2.7.8a](https://github.com/alexdobin/STAR) | [DESeq2](https://bioconductor.org/packages/release/bioc/html/DESeq2.html) | [ggForce](https://ggforce.data-imaginist.com) |
+| [trimmomatic-0.36](http://www.usadellab.org/cms/?page=trimmomatic) | [patchwork](https://patchwork.data-imaginist.com) | [BioStrings](https://bioconductor.org/packages/release/bioc/html/Biostrings.html) |
+| [Plastid](https://plastid.readthedocs.io/en/latest/) | [writexl](https://github.com/ropensci/writexl) | [readxl](https://readxl.tidyverse.org) |
+| [ORF-RATER](https://github.com/alexfields/ORF-RATER) | [ggpp](https://cran.r-project.org/web/packages/ggpp/readme/README.html) | [ggpmisc](https://cran.r-project.org/web/packages/ggpmisc/index.html) |
+| [Docker](https://www.docker.com/) | [wiggleplotr](https://bioconductor.org/packages/release/bioc/html/wiggleplotr.html) | [WebGestaltR](https://cran.r-project.org/web/packages/WebGestaltR/index.html) |
+| [samtools](http://www.htslib.org/) | [GenomicFeatures](https://bioconductor.org/packages/release/bioc/html/GenomicFeatures.html) | [heatmaply](https://cran.r-project.org/web/packages/heatmaply/index.html) |
+| [Deeptools](https://deeptools.readthedocs.io/en/develop/) | [viridis](https://cran.r-project.org/web/packages/viridis/vignettes/intro-to-viridis.html) | [ggvenn](https://github.com/yanlinlin82/ggvenn) |
+| [agat](https://github.com/NBISweden/AGAT) | [ggpubr](https://rpkgs.datanovia.com/ggpubr/) | [ggrepel](https://cran.r-project.org/web/packages/ggrepel/vignettes/ggrepel.html) |
+| [Kent Utilities](https://hgdownload.soe.ucsc.edu/admin/exe/) | [cowplot](https://cran.r-project.org/web/packages/cowplot/vignettes/introduction.html) | [proDA](https://www.bioconductor.org/packages/release/bioc/html/proDA.html) |
+|  | [scales](https://scales.r-lib.org) | [pheatmap](https://cran.r-project.org/web/packages/pheatmap/index.html) |
+|  | [fuzzyjoin](https://cran.r-project.org/web/packages/fuzzyjoin/index.html) |
 
+## Identification of CHO cell ORFs  
+
+### 1. Download the raw Ribo-seq and RNA-seq data 
 # Section 1: Analysis
 
 Make a directory for the analysis and enter it
