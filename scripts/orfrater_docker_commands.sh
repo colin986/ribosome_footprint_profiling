@@ -7,7 +7,7 @@
 # set the working directory
 work_dir=ribosome_footprint_profiling/
 
-threads=50
+threads=60
 
 prune_transcripts.py \
 --inbed $work_dir/orfrater_analysis/cgr.orfrater.annotation.reference.bed \
@@ -101,17 +101,17 @@ $work_dir/data/riboseq_chx/mapped/merged/riboseq_chx.bam \
 --startcount 1 \
 -p $threads \
 -v \
---force > chx_regress_stop.log
+--force > $work_dir/orfrater_analysis/chx_regress_stop.log
 
- regress_orfs.py \
- $work_dir/data/riboseq_nd/mapped/merged/riboseq_nd.bam \
- --subdir $work_dir/orfrater_analysis/nd \
- --orfstore $work_dir/orfrater_analysis/orf.h5 \
- --inbed $work_dir/orfrater_analysis/transcripts.bed \
- --restrictbystarts $work_dir/orfrater_analysis/harr \
- --startcount 1 \
- -p $threads \
- --force > $work_dir/orfrater_analysis/nodrug_regress_stop.log
+regress_orfs.py \
+$work_dir/data/riboseq_nd/mapped/merged/riboseq_nd.bam \
+--subdir $work_dir/orfrater_analysis/nd \
+--orfstore $work_dir/orfrater_analysis/orf.h5 \
+--inbed $work_dir/orfrater_analysis/transcripts.bed \
+--restrictbystarts $work_dir/orfrater_analysis/harr \
+--startcount 1 \
+-p $threads \
+--force > $work_dir/orfrater_analysis/nodrug_regress_stop.log
 
 rate_regression_output.py \
 $work_dir/orfrater_analysis/harr \

@@ -152,8 +152,8 @@ table_s3 <-table_s3 %>%
     `Transcript stop position` =  tstop,
     `Chromosome` = chrom,
     `Strand` = strand.x,
-    `Genomic start position` = tcoord,
-    `Genomic stop position` =  tstop) %>%
+    `Genomic start position` = gcoord,
+    `Genomic stop position` =  gstop) %>%
   arrange(-`ORF-RATER score`)
 
 write_xlsx(list(ORFs = table_s3),
