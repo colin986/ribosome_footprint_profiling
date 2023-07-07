@@ -35,15 +35,12 @@ Chinese hamster ovary (CHO) cells are used to produce almost 90% of therapeutic 
 |  | [scales](https://scales.r-lib.org) | [pheatmap](https://cran.r-project.org/web/packages/pheatmap/index.html) |
 |  | [fuzzyjoin](https://cran.r-project.org/web/packages/fuzzyjoin/index.html) |
 
-## Identification of CHO cell ORFs  
 
-### 1. Download the raw Ribo-seq and RNA-seq data 
 # Section 1: Analysis
 
 Make a directory for the analysis and enter it
-```
-mkdir ribosome_footprint_profiling
-cd ribosome_footprint_profiling
+```bash
+mkdir ribosome_footprint_profiling && cd ribosome_footprint_profiling
 ```
 
 ## 2. Dowload the raw RiboSeq and RNASeq data
