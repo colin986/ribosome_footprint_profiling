@@ -1,7 +1,10 @@
 #!/bin/bash
 #### Description: Downloads the RIBO-seq and RNA-seq data 
-####              from ENA using FFQ
-#### 
+####              from ENA using FFQ 
+####
+#### Gálvez-Merchán, Á., et al. (2022). Metadata retrieval from sequence databases with ffq. 
+#### bioRxiv 2022.05.18.492548.
+#### https://github.com/pachterlab/ffq
 #### Written by: Clarke Lab. NIBRT - colin.clarke@nibrt.ie 
 
 # 1. Total RNASeq (Single-end)
@@ -24,7 +27,7 @@ chx_samples=("SRR16796955" "SRR16796954" "SRR16796953" "SRR16796952"
 
 for sample in ${chx_samples[@]}; do
     (cd $chx_dir && ffq --ftp $sample | grep -Eo '"url": "[^"]*"' | grep -o '"[^"]*"$' | xargs curl -O -s)
-done
+done    
 
 # 3. Harr riboseq
 harr_dir=data/riboseq_harr/raw_data
