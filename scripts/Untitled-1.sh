@@ -1,0 +1,17 @@
+        nextflow run nf-core/quantms \
+        --input 'PXD001819.sdrf.tsv' \
+        --database 'UP000001075_10029.fasta' \
+        --local_input_type raw \
+        --search_engines comet,msgf \
+        --add_decoys TRUE \
+        --enable_pmultiqc FALSE \
+        --root_folder /mnt/HDD2/colin/proteomics_test/data \
+        --outdir './results' -profile docker -resume \
+        --allowed_missed_cleavages 2 \
+        --precursor_mass_tolerance 10 \
+        --fragment_mass_tolerance 0.05 \
+        --fixed_mods 'Carbamidomethyl (C),Oxidation (M),Acetyl (Protein N-term)' \
+        --variable_mods 'Met-loss (Protein N-term M),Met-loss+Acetyl (Protein N-term M)' \
+        --min_peptide_length 5 \
+        --max_peptide_length 63 \
+        --skip_post_msstats

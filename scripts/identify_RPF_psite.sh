@@ -10,11 +10,11 @@
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate plastid
 
-mkdir rpf_psite_analysis
+mkdir results/rpf_psite_analysis
 
 # make a Plastid annotation for the known CDS start positions
 # across the genome
-metagene generate rpf_psite_analysis/cgr_orfs \
+metagene generate results/rpf_psite_analysis/cgr_orfs \
 --landmark cds_start \
 --annotation_files reference_genome/GCF_003668045.3_CriGri-PICRH-1.0_genomic.gtf
 
@@ -22,20 +22,20 @@ metagene generate rpf_psite_analysis/cgr_orfs \
 for seqtype in riboseq_chx riboseq_harr riboseq_nd
   do
   
-  mkdir -p rpf_psite_analysis/individual_files/$seqtype/offset
-  mkdir rpf_psite_analysis/individual_files/$seqtype/periodicity
+  mkdir -p results/rpf_psite_analysis/individual_files/$seqtype/offset
+  mkdir results/rpf_psite_analysis/individual_files/$seqtype/periodicity
 
   while read -ra a ;
     do
-      psite rpf_psite_analysis/cgr_orfs_rois.txt  \
-      rpf_psite_analysis/individual_files/$seqtype/offset/${a[1]} \
+      psite results/rpf_psite_analysis/cgr_orfs_rois.txt  \
+      results/rpf_psite_analysis/individual_files/$seqtype/offset/${a[1]} \
       --min_length 28 \
       --max_length 31 \
       --require_upstream \
       --count_files data/$seqtype/mapped/individual/${a[1]}".bam"
 
-      phase_by_size rpf_psite_analysis/cgr_orfs_rois.txt \
-      rpf_psite_analysis/individual_files/$seqtype/periodicity/${a[1]} \
+      phase_by_size results/rpf_psite_analysis/cgr_orfs_rois.txt \
+      results/rpf_psite_analysis/individual_files/$seqtype/periodicity/${a[1]} \
       --count_files data/$seqtype/mapped/individual/${a[1]}".bam" \
       --fiveprime  \
       --offset 12 \
@@ -49,8 +49,8 @@ done
 # 2. merged samples psite offset
 for seqtype in riboseq_chx riboseq_harr riboseq_nd rnaseq_se
 do
-    psite rpf_psite_analysis/cgr_orfs_rois.txt \
-    rpf_psite_analysis/$seqtype \
+    psite results/rpf_psite_analysis/cgr_orfs_rois.txt \
+    results/rpf_psite_analysis/$seqtype \
     --min_length 28 \
     --max_length 31 \
     --require_upstream \
@@ -62,8 +62,8 @@ done
 # Determine the Proportion of reads found to be in frame at the 12 nt offset
 for seqtype in riboseq_chx riboseq_harr riboseq_nd rnaseq_se
 do
-  phase_by_size rpf_psite_analysis/cgr_orfs_rois.txt \
-  rpf_psite_analysis/$seqtype \
+  phase_by_size results/rpf_psite_analysis/cgr_orfs_rois.txt \
+  results/rpf_psite_analysis/$seqtype \
   --count_files data/$seqtype/mapped/merged/$seqtype".bam" \
   --fiveprime \
   --offset 12 \

@@ -56,7 +56,6 @@ Download the PICR-H reference genome from NCBI and create a STAR index for mappi
 
 ```bash
 # download
-mkdir -p reference_genome
 cat data/reference_genome_files.txt | parallel -j 4 wget -P reference_genome {}
 
 # extract
@@ -67,20 +66,7 @@ gunzip reference_genome/*.gz
 A STAR index is created to map the Ribo-seq and RNA-seq data
 
 ```bash
-# set the path
-star_path=../bin/STAR-2.7.8a/bin/Linux_x86_64
 
-#create a directory 
-mkdir reference_genome/star_index_ncbi
-
-# build the index
-$star_path/STAR --runThreadN 16 \
-     --runMode genomeGenerate \
-     --sjdbOverhang 74 \
-     --genomeChrBinNbits 16 \
-     --genomeDir reference_genome/star_index_ncbi \
-     --genomeFastaFiles reference_genome/GCF_003668045.3_CriGri-PICRH-1.0_genomic.fna \
-     --sjdbGTFfile reference_genome/GCF_003668045.3_CriGri-PICRH-1.0_genomic.gtf
 ```
 
 ## 5. RPF and read mapping
@@ -91,6 +77,7 @@ remaining reads are filtered based on length with only those within the expected
 ./scripts/preprocess_reads.sh
 
 # count the reads removed by filtering as well as the final RPFs
+mkdir results
 ./scripts/fastq_read_count.sh
 ```
 

@@ -31,19 +31,23 @@ $kent_path/gtfToGenePred \
 $kent_path/genePredToBed stdin \
 orfrater_analysis/cgr.orfrater.annotation.tmp.bed
 
-# 3. remove chromosome that cause error 
+# 3. remove the chromosome that cause error 
 grep -v NW_023277000.1  orfrater_analysis/cgr.orfrater.annotation.tmp.bed > \
+orfrater_analysis/cgr.orfrater.annotation.tmp2.bed
+
+# 4. remove miscRNAs that at protein coding gene loci
+grep -v -f reference_genome/miscRNA_trancripts.txt orfrater_analysis/cgr.orfrater.annotation.tmp2.bed > \
 orfrater_analysis/cgr.orfrater.annotation.reference.bed
 
-rm orfrater_analysis/cgr.orfrater.annotation.tmp.bed
+rm orfrater_analysis/cgr.orfrater.annotation.tmp*.bed
 
-# 4. run the ORF-RATER docker with the commands file
+# 5. run the ORF-RATER docker with the commands file
 docker run --rm \
 -v /mnt/HDD2/colin/ribosome_footprint_profiling/:/ribosome_footprint_profiling \
 -t orfrater:final \
 bash "ribosome_footprint_profiling/scripts/orfrater_docker_commands.sh"
 
-# 5. convert orfrater BED to GTF
+# 6. convert orfrater BED to GTF
 /mnt/HDD2/colin/bin/kentUtils/bin/linux.x86_64/bedToGenePred \
 orfrater_analysis/orfrater_predictions.reference.bed stdout | \
 /mnt/HDD2/colin/bin/kentUtils/bin/linux.x86_64/genePredToGtf file stdin \

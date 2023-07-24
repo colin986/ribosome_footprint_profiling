@@ -1,0 +1,851 @@
+---
+title: "ORFik"
+output: html_notebook
+---
+
+```{r}
+library(ORFik)
+library(tidyverse)
+```
+
+# Annotations
+## Reference genome
+### txdb
+```{r eval=FALSE, include=FALSE}
+# make a new GTF file compatible with ORFik
+system("sed 's/XM_/XM./g; s/XR_/XR./g; s/NR_/NR./g; s/NM_/NM./g' ../../reference_genome/GCF_003668045.3_CriGri-PICRH-1.0_genomic.gtf | grep -v unassigned_transcript  > ../../reference_genome/PICRH_ORFik.gtf", intern = TRUE)
+
+# make txDB
+gtf <- "../../reference_genome/PICRH_ORFik.gtf"
+genome <- "../../reference_genome/GCF_003668045.3_CriGri-PICRH-1.0_genomic.fna"
+organism <- "Cricetulus griseus"
+makeTxdbFromGenome(gtf, genome, organism, optimize = TRUE, pseudo_5UTRS_if_needed = 100)
+
+# load txDB
+txdb <- loadTxdb("../../reference_genome/PICRH_ORFik.gtf.db", chrStyle = NULL)
+```
+
+### Make NCBI reference txdb
+```{r}
+cds <- loadRegion(txdb, part = "cds")
+transcript_coordinates <- loadRegion(txdb, "tx")
+```
+
+### Feature table
+```{r}
+suppressWarnings(
+  suppressMessages(
+    CriGri_PICRH_1_0_annotation <- read_delim(paste0("../../reference_genome/GCF_003668045.3_CriGri-PICRH-1.0_feature_table.txt"), 
+          "\t", escape_double = FALSE, trim_ws = TRUE) %>% 
+      filter(str_detect(product_accession, "XM_|NM_|NR_|XR_")) %>% 
+      mutate(tid= product_accession)
+    )
+  )
+```
+
+## ORF-RATER
+### txdb
+```{r}
+gtf_orf <- "../../orfrater_analysis/orfrater_predictions.reference.gtf"
+makeTxdbFromGenome(gtf_orf, genome, organism, optimize = TRUE,pseudo_5UTRS_if_needed = 100)
+```
+
+# Load BAM files
+## Genome aligned
+### Ribo-seq and offset
+```{r}
+shifts <- data.frame(cbind(fraction=c(28,29,30,31),offsets_start=c(-12,-12,-12,-12)))
+bam_file_chx_genome <- "../../data/riboseq_chx/mapped/merged/riboseq_chx.bam"
+genome_footprints_chx <- readBam(bam_file_chx_genome)
+shiftedFootprints_chx <- shiftFootprints(genome_footprints_chx,shifts)
+dedup_shiftedFootprints_chx <- collapseDuplicatedReads(shiftedFootprints_chx)
+
+bam_file_harr_genome <- "../../data/riboseq_harr/mapped/merged/riboseq_harr.bam"
+genome_footprints_harr <- readBam(bam_file_harr_genome)
+shiftedFootprints_harr <- shiftFootprints(genome_footprints_harr,shifts)
+
+bam_file_nd_genome <- "../../data/riboseq_nd/mapped/merged/riboseq_nd.bam"
+genome_footprints_nd <- readBam(bam_file_nd_genome)
+shiftedFootprints_nd <- shiftFootprints(genome_footprints_nd,shifts)
+```
+
+### RNA-seq
+```{r}
+bam_file_rna <- "../../data/rnaseq_se/mapped/merged/rnaseq_se.bam"
+genome_rna <- readBam(bam_file_rna)
+```
+
+### Apply p-site offfset
+```{r}
+# shiftedFootprintsCollapsed_chx <- collapseDuplicatedReads(shiftedFootprints_chx, addSizeColumn = TRUE)
+
+
+#  shiftedFootprintsCollapsedH_harr <- collapseDuplicatedReads(shiftedFootprints_harr, addSizeColumn = TRUE)
+
+
+# shiftedFootprintsCollapsed_nd <- collapseDuplicatedReads(shiftedFootprints_nd, addSizeColumn = TRUE)
+```
+## Transcriptome
+```{r}
+bam_file_chx_transcriptome <- "../../data/riboseq_chx/mapped/merged/riboseq_chxAligned.toTranscriptome.out.bam"
+footprints_chx_transcriptome <- readBam(bam_file_chx_transcriptome)
+# shiftedFootprints_chx_transcriptome <- shiftFootprints(footprints_chx_transcriptome,shifts)
+
+bam_file_harr <- "../../data/riboseq_harr/mapped/merged/riboseq_harrAligned.toTranscriptome.out.bam"
+footprints_harr_transcriptome  <- readBam(bam_file_harr)
+
+bam_file_nd <- "../../data/riboseq_nd/mapped/merged/riboseq_ndAligned.toTranscriptome.out.bam"
+footprints_nd_transcriptome  <- readBam(bam_file_nd)
+```
+
+
+# ORF-RATER results
+## Load
+```{r}
+orftable <- read.csv(file = "../../orfrater_analysis/rate_regression.ncbi.csv", header = T) %>%
+  filter(orfrating >=0.5 & AAlen >= 5)
+paste0(dim(orftable)[1], " ORFs with an orfrating >= 0.5 and longer than 5aa")
+
+orftable %>%
+  filter(str_detect(tfam, "XM_|NM_") & str_detect(tid, "XR_|NR_"))
+```
+
+### miscRNA check
+```{r}
+ # filter(str_detect(orfname,"XM|NM") & str_detect(tid,"XR|NR"))
+all_transcipts <- read_delim(paste0("../../reference_genome/GCF_003668045.3_CriGri-PICRH-1.0_feature_table.txt"), 
+          "\t", escape_double = FALSE, trim_ws = TRUE) %>% 
+  filter(str_detect(product_accession, "XM_|NM_|NR_|XR_")) %>% 
+  dplyr::select(GeneID,product_accession) 
+   
+genes_pc_transcript <- all_transcipts %>%
+  filter(str_detect(related_accession, "NP|XP")) %>%
+dplyr::select(GeneID)
+    
+misc_rnas <- all_transcipts %>%
+  filter(all_transcipts$GeneID %in% genes_pc_transcript$GeneID) %>%
+  filter(str_detect(product_accession, "XR|NR"))
+
+table(misc_rnas$`# feature`)
+
+# Specify the file path for writing the column
+output_file <- "../../reference_genome/miscRNA_trancripts.txt"
+
+# Write the column to a plain text file
+writeLines(misc_rnas$product_accession, con = output_file)
+```
+
+## Annotate
+```{r}
+# add annotation, select and rename columns
+orftable_annotated <- orftable %>%
+  left_join(CriGri_PICRH_1_0_annotation, by="tid") %>%
+  dplyr::select(
+    `ORF-RATER name` = orfname,
+    `ORF type` = orftype,
+    `ORF-RATER score` = orfrating,
+    `Associated Gene symbol` = symbol, 
+    `Associated Gene Name` = name, 
+    `Transcript family` = tfam,
+    `Transcript ID` = tid,
+    `Start codon` = codon,
+    `Length (AAs)` = AAlen,
+    `Start Annotated?` = annot_start,
+    `Stop Annotated` = annot_stop,
+    `Transcript start position` = tcoord,
+    `Transcript stop position` =  tstop,
+    `Chromosome` = chrom,
+    `Strand` = strand.x,
+    `Genomic start position` = gcoord,
+    `Genomic stop position` =  gstop)
+
+# Rename ORF types
+orftable_annotated <- orftable_annotated %>% 
+  mutate(`ORF type` = case_when(
+    `ORF type` ==  "Giso" ~ "Isoform",
+    `ORF type` ==  "NCiso" ~ "Isoform",
+    `ORF type` ==  "new_iso" ~ "Isoform",
+    `ORF type` ==  "Niso" ~ "Isoform",
+    `ORF type` ==  "Siso" ~ "Isoform",
+    `ORF type` ==  "Niso" ~ "Isoform",
+    `ORF type` ==  "Xiso" ~ "Isoform",
+    `ORF type` ==  "Ciso" ~ "Isoform",
+    `ORF type` == "annotated" ~ "Annotated",
+    `ORF type` == "new" ~ "New",
+    `ORF type` == "upstream" ~ "Upstream",
+    `ORF type` == "downstream" ~ "Downstream",
+    `ORF type` == "start_overlap" ~ "Start overlap",
+    `ORF type` == "stop_overlap" ~ "Stop overlap",
+    `ORF type` == "extension" ~ "Extension",
+    `ORF type` == "truncation" ~ "Truncation",
+    `ORF type` == "internal" ~ "Internal",
+    `ORF type` == "LOOF" ~ "LOOF" 
+  ))
+```
+
+# Filtering
+## 1. Remove selected ORFs
+```{r}
+orftable_annotated <- orftable_annotated %>%
+  filter(`ORF type` != "Truncation" & 
+           `ORF type` != "Internal" & 
+           `ORF type` != "LOOF")
+
+paste0(dim(orftable_annotated)[1], " remain following removal of truncated, internal and LOOF")
+```
+
+## 2. TIS enrichement filtering
+### Transcript counts
+```{r}
+count_transcript_alignments <- function(bam_data) {
+  transcript_granges <- GRanges(
+  seqnames = names(seqlengths(bam_data)),
+  ranges = IRanges(1, end = seqlengths(bam_data)),
+  strand = "*")
+  
+  transcript_counts <- countOverlaps(transcript_granges, bam_data)
+  
+  counts <- data.frame(transcript = as.character(transcript_granges@seqnames),
+             counts = transcript_counts)
+  
+  return(counts)
+}
+
+# Reads per transcript in transcriptome aligned BAM
+harr_transcript_counts <- count_transcript_alignments(footprints_harr_transcriptome)
+nd_transcript_counts <- count_transcript_alignments(footprints_nd_transcriptome)
+
+transcript_counts <- harr_transcript_counts %>%
+  dplyr::rename(nharr=counts) %>%
+  left_join(nd_transcript_counts, by = "transcript") %>%
+  dplyr::rename(nnd=counts) %>%
+  dplyr::rename("Transcript ID"=transcript)
+```
+
+### TIS counts
+```{r}
+orf_start_codons <- GRanges(
+  seqnames = orftable_annotated$`Transcript ID`,
+  ranges = IRanges(start=orftable_annotated$`Transcript start position`,
+                   width = 4,
+                   strand = "*"),
+  names=orftable_annotated$`ORF-RATER name`
+  )
+
+orf_tis_counts_harr <- countOverlaps(orf_start_codons, footprints_harr_transcriptome)
+orf_tis_counts_nd <- countOverlaps(orf_start_codons, footprints_nd_transcriptome)
+```
+
+### Rharr-Rnd calculation
+```{r}
+orftable_annotated <- bind_cols(orftable_annotated,
+                            data.frame(xharr = orf_tis_counts_harr,
+                                       xnd = orf_tis_counts_nd)) %>%
+  left_join(transcript_counts, by = "Transcript ID") %>%
+  mutate(Rharr = xharr/nharr,
+         Rnd = xnd/nnd,
+         Rharr_min_Rnd=(Rharr-Rnd)*10) %>%
+  mutate(tis_enriched = case_when(
+  `ORF type` != "annotated" & Rharr_min_Rnd >= 0.05 ~ "TRUE",
+  `ORF type` == "annotated" & Rharr_min_Rnd >= 0.01 ~ "TRUE",
+  TRUE ~ "FALSE"
+  )) %>%
+  filter(tis_enriched == "TRUE") 
+
+paste0(dim(orftable_annotated)[1], " remain following TIS enirchment filtering")
+table(orftable_annotated$`ORF type`)
+level_1_filtering <- orftable_annotated
+
+table(level_1_filtering$`Start codon`,level_1_filtering$`ORF type`)
+
+level_1_filtering %>%
+  filter(`ORF-RATER name` %in% HCP_test_stringent$Accession )
+```
+
+## 3. FLOSS score
+### Create ORF CDS GRanges
+```{r}
+txdb_orf <- loadTxdb("../../orfrater_analysis/orfrater_predictions.reference.gtf.db", chrStyle = NULL)
+cds_orf <- loadRegion(txdb_orf, part = "cds")
+
+orftable_annotated <- orftable_annotated %>% 
+  arrange(`Transcript ID`) %>%
+  mutate(orfik_id = ave(`Transcript ID`, `Transcript ID`, FUN = function(x) ifelse(duplicated(x), paste0(x, "_", seq_along(x)), paste0(x, "_1")))) %>%
+  mutate(orfik_id =  sub("_",".", orfik_id))
+
+order_indices <- match(orftable_annotated$`ORF-RATER name`, names(cds_orf))
+# head(orftable_annotated)
+# head(names(cds_orf[order_indices]))
+
+head(cbind(orftable_annotated$`ORF-RATER name`, names(cds_orf[order_indices])), n = 20)
+
+cds_orf <- cds_orf[order_indices]
+
+names(cds_orf) <- orftable_annotated$orfik_id
+```
+
+### Subset CDS ranges
+#### Reference ORFs
+```{r}
+reference_orfs <- orftable_annotated %>%
+  filter(`ORF type` == "Annotated")
+
+reference_cds_orfs <- cds_orf[names(cds_orf) %in% reference_orfs$orfik_id]
+```
+
+#### Upstream ORFs
+```{r}
+upstream_novel_orfs <- orftable_annotated %>%
+  filter(`ORF type` == "Upstream" | `ORF type` == "Start overlap") 
+
+upstream_novel_orfs_cds <- cds_orf[names(cds_orf) %in% upstream_novel_orfs$orfik_id]
+```
+
+#### Other novel ORFs
+```{r}
+other_novel_orfs <- orftable_annotated %>%
+  filter(`ORF type` != "Annotated" & `ORF type` != "Upstream" & `ORF type` != "Start overlap")
+
+other_novel_orfs_cds <- cds_orf[names(cds_orf) %in% other_novel_orfs$orfik_id]
+```
+
+### Calculate FLOSS
+#### Reference ORFs
+
+```{r}
+orfik_chx_reference_orfs
+```
+
+
+```{r}
+orfik_chx_reference_orfs <- computeFeatures(grl = reference_cds_orfs,
+                      RFP = shiftedFootprints_chx,
+                      RNA = genome_rna, 
+                      Gtf = txdb, 
+                      faFile = "../../reference_genome/GCF_003668045.3_CriGri-PICRH-1.0_genomic.fna", 
+                      sequenceFeatures = T,
+                      riboStart = 28,
+                      riboStop = 31,
+                      uorfFeatures = F) 
+
+reference_orfs <- bind_cols(reference_orfs, orfik_chx_reference_orfs) %>%
+  dplyr::select(colnames(orftable_annotated), floss)
+```
+
+#### Upstream ORFs
+```{r}
+orfik_chx_upstream_orfs <- computeFeatures(grl = upstream_novel_orfs_cds,
+                      RFP = dedup_shiftedFootprints_chx, 
+                      RNA = genome_rna, 
+                      Gtf = txdb, 
+                      faFile = "../../reference_genome/GCF_003668045.3_CriGri-PICRH-1.0_genomic.fna", 
+                      sequenceFeatures = T,
+                      riboStart = 28,
+                      riboStop = 31,
+                      uorfFeatures = T) 
+
+upstream_novel_orfs <- bind_cols(upstream_novel_orfs, orfik_chx_upstream_orfs) %>%
+  dplyr::select(colnames(orftable_annotated), floss, distORFCDS, inFrameCDS, isOverlappingCds, rankInTx)
+```
+
+#### Other novel ORFs
+```{r}
+orfik_chx_other_orfs <- computeFeatures(grl = other_novel_orfs_cds,
+                        RFP = shiftedFootprints_chx, 
+                        RNA = genome_rna, 
+                        Gtf = txdb, 
+                        faFile = "../../reference_genome/GCF_003668045.3_CriGri-PICRH-1.0_genomic.fna", 
+                        sequenceFeatures = T,
+                        riboStart = 28,
+                        riboStop = 31,
+                        uorfFeatures = F)
+
+other_novel_orfs <- bind_cols(other_novel_orfs, orfik_chx_other_orfs) %>%
+  dplyr::select(colnames(orftable_annotated), floss)
+
+table(other_novel_orfs$`ORF type`)
+```
+
+#### Merge
+```{r}
+orftable_annotated_backup <- orftable_annotated
+orftable_annotated <- orftable_annotated_backup
+orftable_annotated <- bind_rows(orfik_chx_reference_orfs, 
+                                orfik_chx_upstream_orfs, 
+                                orfik_chx_other_orfs) 
+```
+
+## Floss Classification
+### Create model
+#### Rolling window
+```{r}
+library(zoo)
+flossCutoffs <- function(nreads, score) {
+  rollwidth <- 200
+
+  unsorted <- data.frame(nreads=nreads, score=score)  
+  fr <- unsorted[order(unsorted$nreads),]
+  nr <- rollapply(fr$nreads, width=rollwidth, function(xs) { mean(xs, na.rm=T) })
+  medsc <- rollapply(fr$score, width=rollwidth, function(xs) { median(xs, na.rm=T) })
+  q1 <- rollapply(fr$score, width=rollwidth, function(xs) { quantile(xs, probs=0.25, na.rm=T) })
+  q3 <- rollapply(fr$score, width=rollwidth, function(xs) { quantile(xs, probs=0.75, na.rm=T) })
+  rawExtreme <- q3 + 3.0*(q3-q1)
+  extLoess <- loess(extreme ~ nread, data.frame(nread=log10(nr), extreme=rawExtreme))
+
+  classify <- function(nr, sc) {
+    extCutoff <- predict(extLoess, log10(nr))
+    factor(
+      if (is.na(extCutoff)) {
+        NA
+      } else if (sc > extCutoff) {
+        "Extreme"      
+      } else {
+        "Good"
+      },
+      levels=c("Good", "Extreme")
+      )
+  }
+  
+  list( l10nreads = log10(nr),
+       scoreMedian = medsc, scoreQ3 = q3, scoreExtreme = rawExtreme,
+       extremeLoess = extLoess,
+       isExtreme = function(nr, sc) { sc > predict(extLoess, log10(nr)) },
+       classify = Vectorize(classify)
+       )
+}
+```
+
+### Reference ORFs
+```{r}
+classifier_ref <- flossCutoffs(orfik_chx_reference_orfs$countRFP[orfik_chx_reference_orfs$countRFP > 10 & orfik_chx_reference_orfs$countRFP  < 10000],
+                               orfik_chx_reference_orfs$floss[orfik_chx_reference_orfs$countRFP > 10 & orfik_chx_reference_orfs$countRFP  < 10000])
+
+
+orfik_chx_upstream_orfs$floss_classification <- classifier_ref$classify(orfik_chx_upstream_orfs$countRFP, 
+                                                                        orfik_chx_upstream_orfs$floss)
+
+
+dim(orfik_chx_upstream_orfs)  
+table(orfik_chx_upstream_orfs$floss_classification)
+```
+
+## Novel FLOSS classification
+
+```{r}
+# chx_floss_score <- floss(grl = cds_orf,cds = cds, RFP = shiftedFootprints_chx, start =28, end = 31)
+```
+
+
+
+```{r}
+table(level_1_filtering$`ORF type`, level_1_filtering$floss_classification)
+XM_027393959.2_257387080_56aa
+stringent_level_1 <- level_1_filtering %>%
+  filter(`Length (AAs)` < 100) %>%
+  filter(`ORF type` == "upstream" | `ORF type` == "start_overlap" |`ORF type` == "new" )
+
+proteomics_orfs <- loadRegion(txdb_orf, part = "cds")
+proteomics_orfs <- proteomics_orfs[names(proteomics_orfs) %in% stringent_level_1$`ORF-RATER name`]
+```
+
+
+# FASTA output
+```{r}
+cds_novel_orfs <- loadRegion(txdb_orf, part = "cds")
+
+system("mkdir ../../results/FASTA", intern = TRUE)
+
+test_orfs <- level_1_filtering %>%
+  filter(`ORF type` == "New")
+
+cgr_fasta <- FaFile("../../reference_genome/GCF_003668045.3_CriGri-PICRH-1.0_genomic.fna")
+orf_to_fasta(test_orfs, cds_novel_orfs, "test", cgr_fasta)
+```
+
+```{r}
+orf_to_fasta <- function(orftable, cds_granges, name, fasta) {
+  
+  standard_code_with_alt_init_codon <- GENETIC_CODE
+  attr(standard_code_with_alt_init_codon, "alt_init_codon") <- c("CTG", "GTG","TTG")
+  
+  orf_granges <- cds_granges[names(cds_granges) %in% orftable$`ORF-RATER name`]
+  
+  orf_transcript_seqs <- extractTranscriptSeqs(fasta, 
+                                               orf_granges)
+  
+  orf_protein_seqs <- Biostrings::translate(orf_transcript_seqs,genetic.code = standard_code_with_alt_init_codon)
+  
+  
+  output_path = paste0("../../results/FASTA/s",name,".fasta")
+  
+  writeXStringSet(orf_protein_seqs, filepath = output_path)
+}
+```
+
+
+
+# Codon and Amino acid sequences
+```{r}
+
+
+uORFids <- level_1_filtering %>%
+  filter(`Length (AAs)` < 100) %>%
+  filter(`ORF type` == "upstream" | `ORF type` == "start_overlap" )
+
+lincORFids <- level_1_filtering %>%
+  filter(`Length (AAs)` < 100) %>%
+  filter(`ORF type` == "new" ) %>%
+  filter(str_detect(`ORF-RATER name`, "XR_|NR_"))
+
+annoORFids <- level_1_filtering %>%
+  filter(`Length (AAs)` >= 100) %>%
+  filter(`ORF type` == "annotated" )
+ 
+anno_orf_transcripts <- cds_novel_orfs[names(cds_novel_orfs) %in% annoORFids$`ORF-RATER name`]
+upstream_orf_transcripts <- cds_novel_orfs[names(cds_novel_orfs) %in% uORFids$`ORF-RATER name`]
+linc_orf_transcripts <- cds_novel_orfs[names(cds_novel_orfs) %in% lincORFids$`ORF-RATER name`]
+
+anno_orf_trans_seqs <- extractTranscriptSeqs(BSgenome.cgr.ncbi::BSgenome.cgr.ncbi, anno_orf_transcripts)
+upstream_orf_trans_seqs <- extractTranscriptSeqs(BSgenome.cgr.ncbi::BSgenome.cgr.ncbi, upstream_orf_transcripts)
+linc_orf_trans_seqs <- extractTranscriptSeqs(BSgenome.cgr.ncbi::BSgenome.cgr.ncbi, linc_orf_transcripts)
+
+anno_orf_trans_seqs <- extractTranscriptSeqs(BSgenome.cgr.ncbi::BSgenome.cgr.ncbi, anno_orf_transcripts)
+upstream_orf_trans_seqs <- extractTranscriptSeqs(BSgenome.cgr.ncbi::BSgenome.cgr.ncbi, upstream_orf_transcripts)
+linc_orf_trans_seqs <- extractTranscriptSeqs(BSgenome.cgr.ncbi::BSgenome.cgr.ncbi, linc_orf_transcripts)
+
+# writeXStringSet(upstream_orf_trans_seqs, filepath = "../../../proteomics_test/relaxed_l1_microproteins.fasta")
+
+anno_orf_aa_seq <- Biostrings::translate(anno_orf_trans_seqs,genetic.code = standard_code_with_alt_init_codon)
+upstream_orf_aa_seq <- Biostrings::translate(upstream_orf_trans_seqs,genetic.code = standard_code_with_alt_init_codon)
+linc_orf_aa_seq <- Biostrings::translate(linc_orf_trans_seqs,genetic.code = standard_code_with_alt_init_codon)
+
+data.frame(annotated = as.matrix(alphabetFrequency(AAStringSet(anno_orf_aa_seq), collapse=T)[1:20]/sum(alphabetFrequency(AAStringSet(anno_orf_aa_seq), collapse=T)[1:20])),
+upstream =as.matrix(alphabetFrequency(AAStringSet(upstream_orf_aa_seq), collapse=T)[1:20]/sum(alphabetFrequency(AAStringSet(upstream_orf_aa_seq), collapse=T)[1:20])),
+linc = as.matrix(annotated =alphabetFrequency(AAStringSet(linc_orf_aa_seq), collapse=T)[1:20]/sum(alphabetFrequency(AAStringSet(linc_orf_aa_seq), collapse=T)[1:20]))
+)
+
+# writeXStringSet(orf_aa_seq, filepath = "../../../proteomics_test/relaxed_l1_microproteins.fasta")
+```
+
+```{r}
+as.data.frame(trinucleotideFrequency(orf_trans_seqs,step = 1, simplify.as = "collapsed"))
+```
+
+
+```{r}
+level_2_filtering <- level_1_filtering %>%
+  mutate(floss_class_2 = case_when(
+    floss_classification == "Good" ~ "Good",
+    floss_classification == "Extreme" ~ "Extreme",
+   is.na(floss_classification) ~ "No"
+  )
+) %>%
+  filter(floss_class_2 != "Extreme" )
+
+HCP_test_stringent %>%
+  filter(Accession %in% orftable$orfname)
+
+level_4_filtering %>%
+  filter(`ORF-RATER name` %in% HCP_test_stringent$Accession)
+
+table(level_2_filtering$`ORF type`,level_2_filtering$floss_class_2)
+```
+
+
+```{r}
+
+```
+
+```{r}
+non_truncates <-level_3_filtering %>% 
+  filter(`ORF type` != "Upstream") %>% 
+  filter(`ORF type` != "Start overlap") %>%
+  filter(`ORF type` != "New") 
+
+# filter uORFs
+single_proteoform_transcripts <- level_3_filtering %>% 
+  filter(`ORF type` == "Upstream" | `ORF type` == "Start overlap" | `ORF type` == "New") %>% 
+  group_by(`Transcript ID`) %>% 
+  mutate(count=n()) %>% 
+  filter(count == 1) 
+```
+
+```{r}
+overlapping <- function(x){
+  if (length(unique(x$`Transcript stop position`)) < length(x$`Transcript stop position`)) {
+    n_occur <- data.frame(table(x$`Transcript stop position`))
+    x_d <- x[duplicated(x$`Transcript stop position`),] 
+    x_d <- x_d[which.max(x_d$`Transcript stop position`-x_d$`Transcript stop position`),] 
+    if (length(n_occur$Freq == 1) > 0) { 
+      nd_tstop <- n_occur[n_occur$Freq <2,1] 
+      x_nd <- x[x$`Transcript stop position` %in% nd_tstop,] 
+      x_final <- rbind(x_nd, x_d) } 
+    else { 
+      x_final <- x_d
+      }
+    } else  {
+      x_final <- x
+      }
+  x_final
+  }
+```
+
+
+```{r}
+uORF_filtered <- level_3_filtering %>%
+  filter(`ORF type` == "Upstream") %>%
+  group_by(`Transcript ID`) %>%
+  mutate(count=n()) %>%
+  filter(count > 1) %>%
+  group_modify(~overlapping(.x)) %>%
+  dplyr::select(-count)
+
+ouORF_filtered <- level_3_filtering %>%
+  filter(`ORF type` == "Start overlap") %>%
+  group_by(`Transcript ID`) %>%
+  mutate(count=n()) %>%
+  filter(count > 1) %>%
+  group_modify(~overlapping(.x)) %>%
+  dplyr::select(-count)
+
+new_filtered <- level_3_filtering %>%
+  filter(`ORF type` == "New") %>%
+  group_by(`Transcript ID`) %>%
+  mutate(count=n()) %>%
+  filter(count > 1) %>%
+  group_modify(~overlapping(.x)) %>%
+  dplyr::select(-count) 
+```
+
+```{r}
+final_table <- bind_rows(non_truncates, 
+                               single_proteoform_transcripts, 
+                               uORF_filtered, 
+                               ouORF_filtered, 
+                               new_filtered)
+
+table(final_table$`ORF type`, final_table$`Start codon`)
+
+final_table %>%
+  filter(`Length (AAs)` < 100 & `ORF type` != "Annotated")
+```
+
+
+```{r}
+table_s3 <- read_excel("/mnt/HDD2/colin/ribosome_footprint_profiling/v1_results/Supplemental Data/Supplementary Data 3.xlsx", 
+    sheet = "ORFs")
+
+pertuzumab_dp <- read_excel("/mnt/HDD2/colin/ribosome_footprint_profiling/v1_results/Supplemental Data/Supplementary Data 4.xlsx", 
+    sheet = "a pertuzumab")
+
+adalimumab_dp <- read_excel("/mnt/HDD2/colin/ribosome_footprint_profiling/v1_results/Supplemental Data/Supplementary Data 4.xlsx", 
+    sheet = "b adalimumab")
+
+denosumab_dp <- read_excel("/mnt/HDD2/colin/ribosome_footprint_profiling/v1_results/Supplemental Data/Supplementary Data 4.xlsx", 
+    sheet = "c denosumab")
+
+vedolizumab_dp <- read_excel("/mnt/HDD2/colin/ribosome_footprint_profiling/v1_results/Supplemental Data/Supplementary Data 4.xlsx", 
+    sheet = "d vedolizumab")
+
+matches <- sum(level_3_filtering$`ORF-RATER name` %in% table_s3$`ORF-RATER name`)
+total <- length(table_s3$`ORF-RATER name`)
+print(paste0(round((matches / total) * 100), "% of original matches remain at 0.01"))
+```
+
+
+```{r}
+pertuzumab_dp <- pertuzumab_dp %>%
+  dplyr::filter(str_detect(Accession, "XR_|XM_|NM_|NR"))
+matches <- sum(pertuzumab_dp$Accession %in% final_table$`ORF-RATER name`)
+total <- length(pertuzumab_dp$Accession)
+print(paste0(round((matches / total) * 100), "% of original matches remain at 0.01"))
+pertuzumab_dp <- pertuzumab_dp[pertuzumab_dp$Accession %in% final_table$`ORF-RATER name`,]
+
+adalimumab_dp<- adalimumab_dp %>%
+  dplyr::filter(str_detect(Accession, "XR_|XM_|NM_|NR"))
+matches <- sum(adalimumab_dp$Accession %in% final_table$`ORF-RATER name`)
+total <- length(adalimumab_dp$Accession)
+print(paste0(round((matches / total) * 100), "% of original matches remain at 0.01"))
+adalimumab_dp<- adalimumab_dp[adalimumab_dp$Accession %in% final_table$`ORF-RATER name`,]
+
+denosumab_dp <- denosumab_dp %>%
+  dplyr::filter(str_detect(Accession, "XR_|XM_|NM_|NR"))
+matches <- sum(denosumab_dp$Accession %in% final_table$`ORF-RATER name`)
+total <- length(denosumab_dp$Accession)
+print(paste0(round((matches / total) * 100), "% of original matches remain at 0.01"))
+denosumab_dp <- denosumab_dp[denosumab_dp$Accession %in% final_table$`ORF-RATER name`,]
+
+vedolizumab_dp <- vedolizumab_dp %>%
+  dplyr::filter(str_detect(Accession, "XR_|XM_|NM_|NR"))
+matches <- sum(vedolizumab_dp$Accession %in% final_table$`ORF-RATER name`)
+total <- length(vedolizumab_dp$Accession)
+print(paste0(round((matches / total) * 100), "% of original matches remain at 0.01"))
+vedolizumab_dp<-vedolizumab_dp[vedolizumab_dp$Accession %in% final_table$`ORF-RATER name`,]
+
+all_microproteins = list(pertuzumab = pertuzumab_dp$Accession, vedolizumab = vedolizumab_dp$Accession, denosumab = denosumab_dp$Accession, adalimumab = adalimumab_dp$Accession)
+library(UpSetR)
+upset(fromList(all_microproteins), 
+      order.by = "freq", 
+      mainbar.y.label = "# microproteins", 
+      sets.x.label = "Total microproteins",
+      sets.bar.color = c("#F0E2B6","#44A043","#0072B2","#D55E00"),
+      main.bar.color = "#440154FF")
+```
+
+```{r}
+level_2_filtering %>% 
+  filter(str_detect(`ORF-RATER name`,"XM_027425023.2"))
+```
+
+
+```{r}
+library(readxl)
+d4_d7_de_novel_proteoforms <- read_excel("/mnt/HDD2/colin/ribosome_footprint_profiling/v1_results/Supplemental Data/Supplementary Data 10.xlsx", 
+    sheet = "b Novel proteoforms D4 v D7")
+d4_d7_de_novel_proteoforms <- d4_d7_de_novel_proteoforms %>%
+  dplyr::filter(str_detect(`ORF-RATER name`, "XR_|XM_|NM_|NR"))
+matches <- sum(d4_d7_de_novel_proteoforms$`ORF-RATER name` %in% final_table$`ORF-RATER name`)
+total <- length(d4_d7_de_novel_proteoforms$`ORF-RATER name`)
+print(paste0(round((matches / total) * 100), "% of original matches remain at 0.01"))
+matches
+```
+
+
+```{r}
+TS24_de_novel_proteoforms <- read_excel("/mnt/HDD2/colin/ribosome_footprint_profiling/v1_results/Supplemental Data/Supplementary Data 9.xlsx", 
+    sheet = "c Microproteins TS24 v NTS")
+
+TS24_de_novel_proteoforms <- TS24_de_novel_proteoforms %>%
+  dplyr::filter(str_detect(`ORF-RATER ID`, "XR_|XM_|NM_|NR"))
+matches <- sum(TS24_de_novel_proteoforms$`ORF-RATER ID` %in% final_table$`ORF-RATER name`)
+total <- length(TS24_de_novel_proteoforms$`ORF-RATER ID`)
+print(paste0(round((matches / total) * 100), "% of original matches remain at 0.01"))
+```
+
+
+```{r}
+TS48_de_novel_proteoforms <- read_excel("/mnt/HDD2/colin/ribosome_footprint_profiling/v1_results/Supplemental Data/Supplementary Data 9.xlsx", 
+    sheet = "d Microproteins TS48 v NTS")
+
+TS48_de_novel_proteoforms <- TS48_de_novel_proteoforms %>%
+  dplyr::filter(str_detect(`ORF-RATER ID`, "XR_|XM_|NM_|NR"))
+matches <- sum(TS48_de_novel_proteoforms$`ORF-RATER ID` %in% final_table$`ORF-RATER name`)
+total <- length(TS48_de_novel_proteoforms$`ORF-RATER ID`)
+print(paste0(round((matches / total) * 100), "% of original matches remain at 0.01"))
+```
+
+
+```{r}
+d4_d7_identified_microproteins <- read_excel("/mnt/HDD2/colin/ribosome_footprint_profiling/v1_results/Supplemental Data/Supplementary Data 8.xlsx", 
+    sheet = "c Microproteins")
+
+d4_d7_identified_microproteins<- d4_d7_identified_microproteins%>%
+  dplyr::filter(str_detect(`ORF-RATER ID`, "XR_|XM_|NM_|NR"))
+matches <- sum(d4_d7_identified_microproteins$`ORF-RATER ID` %in% final_table$`ORF-RATER name`)
+total <- length(d4_d7_identified_microproteins$`ORF-RATER ID`)
+print(paste0(round((matches / total) * 100), "% of original matches remain at 0.01"))
+```
+
+
+```{r}
+d4_d7_identified_novel_proteoforms <- read_excel("/mnt/HDD2/colin/ribosome_footprint_profiling/v1_results/Supplemental Data/Supplementary Data 8.xlsx", 
+    sheet = "b Novel proteoforms >= 100aa")$`ORF-RATER ID`
+
+ts_identified_microproteins <- read_excel("/mnt/HDD2/colin/ribosome_footprint_profiling/v1_results/Supplemental Data/Supplementary Data 7.xlsx", 
+    sheet = "c Microrproteins")$`ORF-RATER ID`
+
+sum(ts_identified_microproteins %in% final_table$`ORF-RATER name`)
+
+ts_identified_novel_proteoforms <- read_excel("/mnt/HDD2/colin/ribosome_footprint_profiling/v1_results/Supplemental Data/Supplementary Data 7.xlsx", 
+    sheet = "b Novel proteoforms >= 100aa")$`ORF-RATER ID`
+
+
+
+ts_RNA_novel_proteoforms <- read_excel("/mnt/HDD2/colin/ribosome_footprint_profiling/v1_results/Supplemental Data/Supplementary Data 5.xlsx", 
+    sheet = "d RNA-seq sORF")$`ORF-RATER ID`
+
+ts_RPF_novel_proteoforms <- read_excel("/mnt/HDD2/colin/ribosome_footprint_profiling/v1_results/Supplemental Data/Supplementary Data 5.xlsx", 
+    sheet = "e RPF Count sORF")$`ORF-RATER ID`
+
+ts_TE_proteoforms <- read_excel("/mnt/HDD2/colin/ribosome_footprint_profiling/v1_results/Supplemental Data/Supplementary Data 5.xlsx", 
+    sheet = "f Translation Eff sORF")$`ORF-RATER ID`
+```
+
+```{r}
+dp_orfs <- c("XM_027387396.2_31916159_59aa",  "XM_027389031.2_233310596_85aa", "XM_027392955.2_70192607_50aa",  "XM_027393036.2_66719070_55aa", 
+ "XM_027393116.2_66157896_15aa",  "XM_027396304.2_386313216_36aa", "XM_027396516.2_395555797_23aa", "XM_027404017.2_376831288_45aa",
+ "XM_027404502.2_73141716_48aa",  "XM_027404525.2_72971876_52aa",  "XM_027405553.2_164329656_35aa", "XM_027408445.2_52515589_25aa" ,
+"XM_027409480.2_244659672_73aa", "XM_027413962.2_103500090_39aa", "XM_027417873.2_78363605_39aa",  "XM_027418992.2_21550718_61aa" ,
+"XM_027419034.2_3807091_40aa",   "XM_027423858.2_143826446_32aa", "XM_027425023.2_44725591_26aa",  "XM_027427032.2_83249212_37aa" ,
+"XM_027429672.2_86498462_66aa",  "XM_027432047.2_41298317_18aa" , "XR_003482233.2_58851435_59aa",  "XR_003484220.2_271753574_67aa",
+"XR_003484233.2_265790378_44aa", "XR_003484695.2_153609277_68aa", "XR_003486989.2_26044227_53aa" , "XR_004768902.1_249918667_98aa",
+"XR_004769536.1_115897545_69aa", "XR_004770827.1_96502054_69aa") 
+```
+
+
+```{r}
+upstream <- -5  # Positions upstream of the start codon
+downstream <- 6  # Positions downstream of the start codo
+promoters(cds, upstream = 1, downstream = 3)
+ranges <- startCodons(cds)
+ranges <- resize(ranges, width(ranges) +3, fix = "end")
+ranges <- resize(ranges, width(ranges) +1, fix = "start")
+kozak_seq <- getSeq(BSgenome.cgr.ncbi::BSgenome.cgr.ncbi,unlist(ranges))
+
+
+kozak <- kozak[width(kozak_seq) == 7]
+kozak <- (DNAStringSet(paste0(as.character(subseq(kozak_seq, start =1, end =3)), as.character(subseq(kozak_seq, start =7, end =7)))))
+kozak <- kozak[!grepl("N", kozak)]
+pfm <- consensusMatrix(kozak)
+pwm <- PWM(pfm,type = "log2probratio")
+round(pwm, 2)
+
+data(HNF4alpha)
+pfm <- consensusMatrix(HNF4alpha)
+pwm <- PWM(pfm)  # same as 'PWM(HNF4alpha)'
+
+## Perform some general routines on the PWM:
+round(pwm, 2)
+
+promoters(cds, upstream = 1, downstream = 3)
+ranges <- startCodons(cds_orf)
+ranges <- resize(ranges, width(ranges) +3, fix = "end")
+ranges <- resize(ranges, width(ranges) +1, fix = "start")
+
+kozak_seq_orf <- getSeq(BSgenome.cgr.ncbi::BSgenome.cgr.ncbi,unlist(ranges))
+kozak_seq_orf <- kozak_seq_orf[width(kozak_seq_orf) == 7]
+kozak_seq_orf <- (DNAStringSet(paste0(as.character(subseq(kozak_seq_orf, start =1, end =3)), as.character(subseq(kozak_seq_orf, start =7, end =7)))))
+kozak_seq_orf <- kozak_seq_orf[!grepl("N", kozak_seq_orf)]
+kozak_seqs = as.character(variant[[kozakSeqs]])
+
+kozak_scores <- data.frame( orfik_id = character(length = length(kozak_seq_orf)),
+                            kozaz_score_cho= vector("numeric", length = length(kozak_seq_orf)))
+                            
+for (i in 1:length(kozak_seq_orf)){
+  kozak_scores$orfik_id[i] <- names(kozak_seq_orf)[i]
+  if (width (kozak_seq_orf[i]) == 7 && !grepl("N", kozak_seq_orf[i])) {
+    current_sequence <- DNAStringSet(paste0(as.character(subseq(kozak_seq_orf[i], start =1, end =3)), 
+                                          as.character(subseq(kozak_seq_orf[i], start =7, end =7))))
+  kozak_scores$kozak_score_cho[i] <- PWMscoreStartingAt(pwm, as.character(current_sequence))
+  } else {
+  kozak_scores$kozak_score_cho[i] <- NA
+  }
+}
+
+kozak_scores %>%
+  left_join(test_frame, by = "orfik_id") %>%
+  ggplot(aes(x=kozak, y=kozak_score_cho)) +
+  geom_point(alpa=0.2) 
+
+kozak_scores %>%
+  left_join(test_frame, by = "orfik_id") %>%
+   filter(orftype %in% c("annotated","upstream","start_overlap")) %>%
+  filter()
+  ggplot(aes(y=log(te), x=orftype)) +
+  geom_violin() +
+  facet_wrap(~codon)
+~
+```
+
+
+
