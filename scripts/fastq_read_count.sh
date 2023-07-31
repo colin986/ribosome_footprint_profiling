@@ -19,7 +19,7 @@ done
 # 2. count the reads removed by trimming 
 for seqtype in riboseq_chx riboseq_harr riboseq_nd
 do
-    for f in data/$seqtype/preproccessed_data/trimmed/ribo*fastq.gz; 
+    for f in data/$seqtype/preproccessed_data/trimmed/*fastq.gz; 
         do echo -n "$f | "  && echo $(($(zcat $f | echo $((`wc -l`/4))))); 
     done > results/read_counts/$seqtype.trimmed.counts && sed  -i '1i file | raw_read_number' results/read_counts/$seqtype.trimmed.counts
 done
@@ -29,7 +29,7 @@ for seqtype in riboseq_chx riboseq_harr riboseq_nd
 do
     for step in rRNA_filter snoRNA_filter tRNA_filter
     do
-        for f in data/"$seqtype"/preproccessed_data/"$step"/*Unmapped.out.mate1; 
+        for f in data/"$seqtype"/preproccessed_data/"$step"/*_unaligned.fq; 
             do echo -n "$f | "  && echo $(($(cat $f | echo $((`wc -l`/4))))); 
         done > results/read_counts/$seqtype.$step.counts && sed  -i '1i file | raw_read_number' results/read_counts/$seqtype.$step.counts
     done
@@ -43,7 +43,6 @@ do
     done > results/read_counts/$seqtype.final.counts && sed  -i '1i file | raw_read_number' results/read_counts/$seqtype.final.counts
 done
 
-
 mkdir results/read_length_distribution
 
 # 2. count read length distributions
@@ -55,7 +54,7 @@ do
     else
         for sample in nts_r1 nts_r2 nts_r3 nts_r4 ts_r1 ts_r2 ts_r3 ts_r4
         do
-                cat data/$seqtype/preproccessed_data/tRNA_filter/$sample.tRNA.Unmapped.out.mate1 | \
+                cat data/$seqtype/preproccessed_data/tRNA_filter/"$sample"_unaligned.fq | \
                 awk '{if(NR%4==2) print length($1)}' | sort -n | uniq -c > results/read_length_distribution/$seqtype.$sample.txt
         done
     fi

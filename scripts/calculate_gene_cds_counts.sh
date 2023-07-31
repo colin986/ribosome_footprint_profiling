@@ -11,6 +11,7 @@
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate plastid
 
+mkdir -p results/DE_analysis/quantitation/gene_cds_counts
 # count the CHX riboseq data
 
 for i in nts_r1 nts_r2 nts_r3 nts_r4 ts_r1 ts_r2 ts_r3 ts_r4
@@ -22,8 +23,8 @@ cs count \
   --offset 12 \
   --min_length 28 \
   --max_length 31 \
-  plastid_reference/annotation_gene.positions \
-  quantitation/gene_cds_counts/riboseq_$i
+  results/DE_analysis/plastid_reference/annotation_gene.positions \
+  results/DE_analysis/quantitation/gene_cds_counts/riboseq_$i
 done
 
 # count the RNASeq data
@@ -33,8 +34,8 @@ cs count \
   --count_files data/rnaseq_se/mapped/individual/$i".bam" \
   --countfile_format BAM \
   --fiveprime \
-  plastid_reference/annotation_gene.positions \
-  quantitation/gene_cds_counts/rnaseq_$i
+  results/DE_analysis/plastid_reference/annotation_gene.positions \
+  results/DE_analysis/quantitation/gene_cds_counts/rnaseq_$i
 done
 
 # conda deactivate

@@ -32,17 +32,56 @@ done
 mkdir -p results/alignment_tracks/merged
 merged_dir=results/alignment_tracks/merged
 
-for seqtype in riboseq_harr riboseq_nd riboseq_harr riboseq_chx
+# for seqtype in riboseq_harr riboseq_nd riboseq_harr riboseq_chx
+# do
+#     make_wiggle \
+#     --count_files data/$seqtype/mapped/merged/$seqtype"Aligned.toTranscriptome.out.sorted.bam" \
+#     --countfile_format BAM \
+#     --fiveprime \
+#     --offset 12 \
+#     --output_format bedgraph \
+#     -o $merged_dir/$seqtype.psite.transcriptome.nonorm.bedgraph 
+    
+# done
+
+# for seqtype in riboseq_harr riboseq_nd riboseq_harr riboseq_chx
+# do
+#     make_wiggle \
+#     --count_files data/$seqtype/mapped/merged/$seqtype.bam \
+#     --countfile_format BAM \
+#     --fiveprime \
+#     --offset 12 \
+#     --output_format bedgraph \
+#     -o $merged_dir/$seqtype.psite.genome.nonorm.bedgraph 
+    
+# done
+
+for seqtype in riboseq_chx
 do
     make_wiggle \
-    --count_files data/$seqtype/mapped/merged/$seqtype"Aligned.toTranscriptome.out.sorted.bam" \
+    --count_files data/$seqtype/mapped/merged/$seqtype.bam \
     --countfile_format BAM \
-    --fiveprime \   
-    --offset 12 \
+    --fiveprime \
+    --offset 0 \
     --output_format bedgraph \
-    --normalize \
-    -o $merged_dir/$seqtype.psite.transcriptome.bedgraph \
+    -o $merged_dir/$seqtype.full.genome.nonorm.bedgraph 
     
 done
 
+# for seqtype in riboseq_harr riboseq_nd riboseq_harr riboseq_chx
+# do
+#     make_wiggle \
+#     --count_files data/$seqtype/mapped/merged/$seqtype"Aligned.toTranscriptome.out.sorted.bam" \
+#     --countfile_format BAM \
+#     --fiveprime \
+#     --offset 0 \
+#     --output_format bedgraph \
+#     --normalize \
+#     -o $merged_dir/$seqtype.fullcov.transcriptome.bedgraph \
+    
+# done
+
 conda deactivate
+
+
+bamCoverage -b data/riboseq_chx/mapped/merged/riboseq_chx.bam  -o results/alignment_tracks/merged/riboseq_chx.fullcov.transcriptome.bedgraph --outFileFormat bedgraph -bs 1 -p 70 --normalizeUsing BPM 

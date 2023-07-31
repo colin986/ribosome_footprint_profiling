@@ -52,3 +52,11 @@ bash "ribosome_footprint_profiling/scripts/orfrater_docker_commands.sh"
 orfrater_analysis/orfrater_predictions.reference.bed stdout | \
 /mnt/HDD2/colin/bin/kentUtils/bin/linux.x86_64/genePredToGtf file stdin \
 orfrater_analysis/orfrater_predictions.reference.gtf
+
+
+# write the metagenes for each riboseq type to results
+
+mkdir results/metagene_profiles
+cp orfrater_analysis/chx/metagene.txt results/metagene_profiles/chx.metagene.txt
+cp orfrater_analysis/harr/metagene.txt results/metagene_profiles/harr.metagene.txt
+cp orfrater_analysis/nd/metagene.txt results/metagene_profiles/nd.metagene.txt
