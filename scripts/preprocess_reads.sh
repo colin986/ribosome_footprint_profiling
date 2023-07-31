@@ -67,7 +67,7 @@ while read -ra a ;
         cutadapt  --report=full -a AGATCGGAAGAGCACACGTCT -j 50 -m 20 \
         -o data/$seqtype/preproccessed_data/trimmed/${a[0]} data/$seqtype/raw_data/${a[0]}
       else
-        cutadapt  --discard-untrimmed -m 20 --report=full -a AGATCGGAAGAGCACACGTCT -j 50 \
+        cutadapt  --discard-untrimmed -m 20 --report=full -a AGATCGGAAGAGCACACGTCT -j 50 --minimum-length 1 \
         -o data/$seqtype/preproccessed_data/trimmed/${a[0]} data/$seqtype/raw_data/${a[0]}
       fi
     fi
@@ -235,3 +235,6 @@ $star_path/STAR \
     # index bam
     samtools index data/rnaseq_se/mapped/merged/rnaseq_se.bam
 # end
+
+# count the reads and determine read length distribution 
+./scripts/fastq_read_count.sh
