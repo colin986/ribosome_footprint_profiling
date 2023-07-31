@@ -73,3 +73,6 @@ scripts/philosopher_commands.sh
 reference_genome/refseq_microproteins.fa
 results/r_scripts/orf_scoring.Rmd
 results/r_scripts/orf_scoring.Rmd
+ribosome_footprint_profiling.Rproj
+reference_genome/.DS_Store
+.DS_Store
