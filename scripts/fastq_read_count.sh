@@ -20,7 +20,7 @@ done
 for seqtype in riboseq_chx riboseq_harr riboseq_nd
 do
     for f in data/$seqtype/preproccessed_data/trimmed/*fastq.gz; 
-        do echo -n "$f | "  && echo $(($(zcat $f | echo $((`wc -l`/4))))); 
+        do echo -n "$f | "  && echo $(($(cat $f | echo $((`wc -l`/4))))); 
     done > results/read_counts/$seqtype.trimmed.counts && sed  -i '1i file | raw_read_number' results/read_counts/$seqtype.trimmed.counts
 done
 
